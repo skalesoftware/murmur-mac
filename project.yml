@@ -31,8 +31,8 @@ targets:
         product: WhisperKit
     settings:
       base:
-        INFOPLIST_FILE: Murmur/Info.plist
-        CODE_SIGN_ENTITLEMENTS: Murmur/Murmur.entitlements
+        INFOPLIST_FILE: Info.plist
+        CODE_SIGN_ENTITLEMENTS: Murmur.entitlements
         PRODUCT_BUNDLE_IDENTIFIER: ai.menera.Murmur
         PRODUCT_NAME: Murmur
         MARKETING_VERSION: "0.1.0"
