@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>Murmur</string>
+    <key>CFBundleDisplayName</key>
+    <string>Murmur</string>
+    <key>CFBundleIdentifier</key>
+    <string>ai.menera.Murmur</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+
+    <!-- Menu-bar app: no Dock icon needed. Set to false if you want a Dock icon. -->
+    <key>LSUIElement</key>
+    <false/>
+
+    <!-- Permission usage strings shown in the system prompts. -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Murmur records your microphone so it can transcribe your side of the meeting.</string>
+
+    <!-- ScreenCaptureKit uses the Screen Recording permission to capture system audio.
+         If you migrate to Core Audio process taps, replace this with
+         NSAudioCaptureUsageDescription instead. -->
+    <key>NSSystemAdministrationUsageDescription</key>
+    <string>Murmur captures system audio to transcribe the other participants in your meeting.</string>
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>Murmur captures system audio to transcribe the other participants in your meeting.</string>
+</dict>
+</plist>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      For a personal build, the App Sandbox is left OFF (easiest path for
+      ScreenCaptureKit + Core Audio taps). If you enable the sandbox for
+      distribution, you'll need at minimum:
+        com.apple.security.device.audio-input   (microphone)
+        com.apple.security.network.client       (reach localhost Ollama)
+      and ScreenCaptureKit works under the sandbox with user consent.
+    -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+    <key>com.apple.security.network.client</key>
+    <true/>
+</dict>
+</plist>

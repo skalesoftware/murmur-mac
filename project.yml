@@ -1,0 +1,46 @@
+# XcodeGen spec. Generates Murmur.xcodeproj with the WhisperKit SPM dependency
+# already wired in. Install XcodeGen (`brew install xcodegen`), then run
+# `xcodegen generate` in this folder. See README.md for the full setup.
+
+name: Murmur
+options:
+  bundleIdPrefix: ai.menera
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+packages:
+  WhisperKit:
+    url: https://github.com/argmaxinc/WhisperKit
+    from: "0.9.0"
+
+targets:
+  Murmur:
+    type: application
+    platform: macOS
+    sources:
+      - path: .
+        excludes:
+          - "Info.plist"
+          - "Murmur.entitlements"
+          - "project.yml"
+          - "README.md"
+          - "Murmur-Design.md"
+    dependencies:
+      - package: WhisperKit
+        product: WhisperKit
+    settings:
+      base:
+        INFOPLIST_FILE: Murmur/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Murmur/Murmur.entitlements
+        PRODUCT_BUNDLE_IDENTIFIER: ai.menera.Murmur
+        PRODUCT_NAME: Murmur
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: NO
+        ENABLE_HARDENED_RUNTIME: YES
+        SWIFT_VERSION: "5.0"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        # Set your signing team here (required for Core Audio taps; recommended anyway):
+        # DEVELOPMENT_TEAM: ABCDE12345
+        CODE_SIGN_STYLE: Automatic
