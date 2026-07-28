@@ -20,6 +20,9 @@
     <false/>
 
     <!-- Permission usage strings shown in the system prompts. -->
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>Murmur reads your calendar to automatically start recording when a meeting begins.</string>
+
     <key>NSMicrophoneUsageDescription</key>
     <string>Murmur records your microphone so it can transcribe your side of the meeting.</string>
 

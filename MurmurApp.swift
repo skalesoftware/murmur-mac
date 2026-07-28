@@ -3,11 +3,9 @@ import SwiftData
 
 @main
 struct MurmurApp: App {
-    /// Shared SwiftData container for all `Meeting` records.
     let container: ModelContainer
-
-    /// The single coordinator that owns recording state for the whole app.
     @State private var controller: RecordingController
+    @State private var calendarMonitor: CalendarMonitor
 
     init() {
         do {
@@ -15,19 +13,23 @@ struct MurmurApp: App {
         } catch {
             fatalError("Failed to create SwiftData container: \(error)")
         }
-        _controller = State(initialValue: RecordingController(context: container.mainContext))
+        let ctrl = RecordingController(context: container.mainContext)
+        _controller = State(initialValue: ctrl)
+        _calendarMonitor = State(initialValue: CalendarMonitor())
     }
 
     var body: some Scene {
-        // Single main window (not a WindowGroup) so "Open Murmur" focuses the
-        // existing window instead of spawning duplicates.
         Window("Murmur", id: "main") {
             ContentView()
                 .environment(controller)
+                .environment(calendarMonitor)
+                .task {
+                    calendarMonitor.controller = controller
+                    await calendarMonitor.requestAccessIfNeeded()
+                }
         }
         .modelContainer(container)
 
-        // Always-present menu-bar control, Granola-style.
         MenuBarExtra {
             MenuBarView()
                 .environment(controller)
@@ -39,6 +41,7 @@ struct MurmurApp: App {
         Settings {
             SettingsView()
                 .environment(controller)
+                .environment(calendarMonitor)
         }
     }
 }

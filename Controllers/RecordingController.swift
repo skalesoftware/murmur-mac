@@ -49,7 +49,7 @@ final class RecordingController {
 
     // MARK: - Recording lifecycle
 
-    func startRecording() async {
+    func startRecording(calendarTitle: String? = nil) async {
         guard phase == .idle || isErrorPhase else { return }
 
         guard await MicrophoneCapturer.requestPermission() else {
@@ -61,7 +61,7 @@ final class RecordingController {
         startDate = .now
         elapsed = 0
         liveNotes = ""
-        liveTitle = "Meeting \(Self.dateFormatter.string(from: startDate))"
+        liveTitle = calendarTitle ?? "Meeting \(Self.dateFormatter.string(from: startDate))"
         micLevel = 0
         systemLevel = 0
         latestVideoFrame = nil
