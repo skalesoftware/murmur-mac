@@ -40,7 +40,7 @@ struct LiveRecordingView: View {
                 VStack(spacing: 16) {
                     // Screen-capture preview
                     VideoPreviewView(frame: controller.latestVideoFrame)
-                        .aspectRatio(16 / 9, contentMode: .fit)
+                        .aspectRatio(16.0 / 9.0, contentMode: .fit)
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                         .overlay {
                             RoundedRectangle(cornerRadius: 10)
