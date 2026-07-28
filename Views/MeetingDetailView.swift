@@ -154,7 +154,7 @@ struct MeetingDetailView: View {
         return HStack(alignment: .top, spacing: 10) {
             Text(isYou ? "You" : "Them")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(isYou ? Color.accentColor : .secondary)
+                .foregroundStyle(isYou ? Color.accentColor : Color.secondary)
                 .frame(width: 36, alignment: .trailing)
                 .padding(.top, 1)
             Text(line.dropFirst(isYou ? 4 : 5).trimmingCharacters(in: .whitespaces))

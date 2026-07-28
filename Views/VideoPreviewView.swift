@@ -26,12 +26,7 @@ final class VideoLayerView: NSView {
         layer?.addSublayer(display)
 
         // Timebase anchored to the host clock so incoming frames show immediately.
-        var tb: CMTimebase?
-        CMTimebaseCreateWithSourceClock(
-            allocator: kCFAllocatorDefault,
-            sourceClock: CMClockGetHostTimeClock(),
-            timebaseOut: &tb)
-        if let tb {
+        if let tb = try? CMTimebase(sourceClock: CMClockGetHostTimeClock()) {
             CMTimebaseSetTime(tb, time: CMClockGetTime(CMClockGetHostTimeClock()))
             CMTimebaseSetRate(tb, rate: 1.0)
             display.controlTimebase = tb
