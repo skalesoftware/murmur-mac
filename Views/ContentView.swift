@@ -1,102 +1,136 @@
 import SwiftUI
 import SwiftData
 
-/// Root window: sidebar of past meetings + detail pane, with a record bar on top.
 struct ContentView: View {
     @Environment(RecordingController.self) private var controller
-    @Environment(\.modelContext) private var context
     @Query(sort: \Meeting.startedAt, order: .reverse) private var meetings: [Meeting]
 
     var body: some View {
         @Bindable var controller = controller
         NavigationSplitView {
-            List(selection: $controller.selectedMeeting) {
-                ForEach(meetings) { meeting in
-                    MeetingRow(meeting: meeting)
-                        .tag(meeting)
-                        .contextMenu {
-                            Button("Delete", role: .destructive) { controller.delete(meeting) }
-                        }
+            SidebarView(meetings: meetings)
+                .navigationSplitViewColumnWidth(min: 220, ideal: 248)
+        } detail: {
+            switch controller.phase {
+            case .recording, .transcribing, .enhancing:
+                LiveRecordingView()
+            case .idle, .error:
+                if let meeting = controller.selectedMeeting {
+                    MeetingDetailView(meeting: meeting)
+                } else {
+                    emptyState
                 }
             }
-            .navigationTitle("Murmur")
-            .navigationSplitViewColumnWidth(min: 220, ideal: 260)
-            .safeAreaInset(edge: .bottom) { RecordBar() }
-        } detail: {
-            if controller.isRecording {
-                LiveRecordingView()
-            } else if let meeting = controller.selectedMeeting {
-                MeetingDetailView(meeting: meeting)
-            } else {
-                ContentUnavailableView(
-                    "No meeting selected",
-                    systemImage: "waveform",
-                    description: Text("Hit Record to capture a meeting, or pick one from the list.")
-                )
-            }
         }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "waveform.and.mic")
+                .font(.system(size: 48, weight: .ultraLight))
+                .foregroundStyle(.tertiary)
+            Text("No meeting selected")
+                .font(.title3.weight(.medium))
+            Text("Hit Record to start capturing, or pick a past meeting.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: 320)
+    }
+}
+
+// MARK: - Sidebar
+
+private struct SidebarView: View {
+    @Environment(RecordingController.self) private var controller
+    let meetings: [Meeting]
+
+    var body: some View {
+        @Bindable var controller = controller
+        VStack(spacing: 0) {
+            List(meetings, selection: $controller.selectedMeeting) { meeting in
+                MeetingRow(meeting: meeting)
+                    .tag(meeting)
+                    .contextMenu {
+                        Button("Delete", role: .destructive) { controller.delete(meeting) }
+                    }
+            }
+            .listStyle(.sidebar)
+
+            Divider()
+            RecordBar()
+        }
+        .navigationTitle("Murmur")
     }
 }
 
 private struct MeetingRow: View {
     let meeting: Meeting
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(meeting.title).font(.headline).lineLimit(1)
-            HStack(spacing: 6) {
-                Text(meeting.startedAt, format: .dateTime.month().day().hour().minute())
-                Text("· \(meeting.formattedDuration)")
+        VStack(alignment: .leading, spacing: 3) {
+            Text(meeting.title)
+                .font(.subheadline.weight(.medium))
+                .lineLimit(1)
+            HStack(spacing: 4) {
+                Text(meeting.startedAt, format: .dateTime.month(.abbreviated).day().hour().minute())
+                Text("·")
+                Text(meeting.formattedDuration)
             }
             .font(.caption)
             .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 3)
     }
 }
 
-/// The record / stop control + status, pinned to the sidebar bottom.
+// MARK: - Record bar
+
 struct RecordBar: View {
     @Environment(RecordingController.self) private var controller
 
     var body: some View {
         VStack(spacing: 6) {
-            Divider()
-            HStack {
-                Button {
-                    Task {
-                        if controller.isRecording { await controller.stopRecording() }
-                        else { await controller.startRecording() }
-                    }
-                } label: {
-                    Label(
-                        controller.isRecording ? "Stop" : "Record",
-                        systemImage: controller.isRecording ? "stop.circle.fill" : "record.circle"
-                    )
-                    .frame(maxWidth: .infinity)
+            Button {
+                Task {
+                    if controller.isRecording { await controller.stopRecording() }
+                    else { await controller.startRecording() }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(controller.isRecording ? .red : .accentColor)
-                .disabled(controller.isBusy)
+            } label: {
+                Label(
+                    controller.isRecording ? "Stop recording" : "Record",
+                    systemImage: controller.isRecording ? "stop.circle.fill" : "record.circle"
+                )
+                .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.borderedProminent)
+            .tint(controller.isRecording ? .red : .accentColor)
+            .disabled(controller.isBusy)
+
             statusLine
         }
-        .padding(8)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 
     @ViewBuilder private var statusLine: some View {
         switch controller.phase {
         case .recording:
             Label(timeString, systemImage: "record.circle.fill")
-                .foregroundStyle(.red).font(.caption.monospacedDigit())
+                .foregroundStyle(.red)
+                .font(.caption.monospacedDigit())
         case .transcribing:
-            Label("Transcribing…", systemImage: "waveform").font(.caption).foregroundStyle(.secondary)
+            Label("Transcribing…", systemImage: "waveform")
+                .font(.caption).foregroundStyle(.secondary)
         case .enhancing:
-            Label("Writing notes…", systemImage: "sparkles").font(.caption).foregroundStyle(.secondary)
+            Label("Writing notes…", systemImage: "sparkles")
+                .font(.caption).foregroundStyle(.secondary)
         case .error(let msg):
             Label(msg, systemImage: "exclamationmark.triangle")
                 .font(.caption).foregroundStyle(.orange).lineLimit(3)
         case .idle:
-            EmptyView()
+            Color.clear.frame(height: 16)
         }
     }
 

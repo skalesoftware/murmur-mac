@@ -1,9 +1,8 @@
 import Foundation
 import SwiftData
 import Observation
+import CoreMedia
 
-/// The single source of truth for recording state and the orchestrator of the
-/// capture -> transcribe -> enhance -> persist pipeline.
 @MainActor
 @Observable
 final class RecordingController {
@@ -19,13 +18,15 @@ final class RecordingController {
     // MARK: Observable state
     var phase: Phase = .idle
     var elapsed: TimeInterval = 0
-    /// Live notes the user types while recording.
     var liveNotes: String = ""
     var liveTitle: String = "Untitled meeting"
-    /// The meeting currently selected in the UI (nil = none).
     var selectedMeeting: Meeting?
-    /// Ollama model to use for enhancement.
     var ollamaModel: String = "llama3.1:8b"
+
+    // Live A/V feedback during recording
+    var micLevel: Float = 0
+    var systemLevel: Float = 0
+    var latestVideoFrame: CMSampleBuffer?
 
     var isRecording: Bool { phase == .recording }
     var isBusy: Bool { phase == .transcribing || phase == .enhancing }
@@ -44,16 +45,13 @@ final class RecordingController {
     private var micURL: URL?
     private var systemURL: URL?
 
-    init(context: ModelContext) {
-        self.context = context
-    }
+    init(context: ModelContext) { self.context = context }
 
     // MARK: - Recording lifecycle
 
     func startRecording() async {
         guard phase == .idle || isErrorPhase else { return }
 
-        // Permissions.
         guard await MicrophoneCapturer.requestPermission() else {
             phase = .error("Microphone access denied. Enable it in System Settings › Privacy & Security › Microphone.")
             return
@@ -64,20 +62,30 @@ final class RecordingController {
         elapsed = 0
         liveNotes = ""
         liveTitle = "Meeting \(Self.dateFormatter.string(from: startDate))"
+        micLevel = 0
+        systemLevel = 0
+        latestVideoFrame = nil
+
+        // Wire audio-level and video-frame callbacks before starting capture.
+        mic.levelHandler = { @Sendable [weak self] level in
+            Task { @MainActor [weak self] in self?.micLevel = level }
+        }
+        system.levelHandler = { @Sendable [weak self] level in
+            Task { @MainActor [weak self] in self?.systemLevel = level }
+        }
+        system.videoFrameHandler = { @Sendable [weak self] frame in
+            Task { @MainActor [weak self] in self?.latestVideoFrame = frame }
+        }
 
         do {
             let folder = try meetingFolder(for: meetingID)
-            let micURL = folder.appendingPathComponent("mic.wav")
-            let systemURL = folder.appendingPathComponent("system.wav")
-            self.micURL = micURL
-            self.systemURL = systemURL
+            let mURL = folder.appendingPathComponent("mic.wav")
+            let sURL = folder.appendingPathComponent("system.wav")
+            micURL = mURL
+            systemURL = sURL
 
-            let micWriter = AudioFileWriter(url: micURL, label: "mic")
-            let systemWriter = AudioFileWriter(url: systemURL, label: "system")
-
-            try mic.start(writer: micWriter)
-            // ScreenCaptureKit prompts for Screen Recording permission here on first run.
-            try await system.start(writer: systemWriter)
+            try mic.start(writer: AudioFileWriter(url: mURL, label: "mic"))
+            try await system.start(writer: AudioFileWriter(url: sURL, label: "system"))
 
             phase = .recording
             startTimer()
@@ -93,13 +101,14 @@ final class RecordingController {
         stopTimer()
         mic.stop()
         system.stop()
+        micLevel = 0
+        systemLevel = 0
 
         let duration = elapsed
         let notes = liveNotes
         let title = liveTitle
         guard let micURL, let systemURL else { phase = .idle; return }
 
-        // Create + persist the meeting shell immediately so it appears in the list.
         let meeting = Meeting(
             id: meetingID,
             title: title,
@@ -112,20 +121,17 @@ final class RecordingController {
         try? context.save()
         selectedMeeting = meeting
 
-        // Transcribe.
         phase = .transcribing
         do {
             let segments = try await transcriber.mergedTranscript(micURL: micURL, systemURL: systemURL)
             meeting.transcript = TranscriptionManager.format(segments)
             try? context.save()
 
-            // Enhance (best-effort — a missing Ollama shouldn't lose the transcript).
             phase = .enhancing
             enhancer.updateModel(ollamaModel)
             if await enhancer.isReachable() {
                 meeting.enhancedNotes = try await enhancer.enhance(
-                    rawNotes: notes, transcript: meeting.transcript
-                )
+                    rawNotes: notes, transcript: meeting.transcript)
             } else {
                 meeting.enhancedNotes = "_Ollama not reachable on localhost:11434. Start it (`ollama serve`) and click Re-generate._"
             }
@@ -137,8 +143,6 @@ final class RecordingController {
         }
     }
 
-    /// Re-run enhancement for an existing meeting (e.g. after starting Ollama or
-    /// editing raw notes).
     func regenerate(_ meeting: Meeting) async {
         phase = .enhancing
         enhancer.updateModel(ollamaModel)
@@ -148,8 +152,7 @@ final class RecordingController {
                 return
             }
             meeting.enhancedNotes = try await enhancer.enhance(
-                rawNotes: meeting.rawNotes, transcript: meeting.transcript
-            )
+                rawNotes: meeting.rawNotes, transcript: meeting.transcript)
             try? context.save()
             phase = .idle
         } catch {
@@ -159,8 +162,7 @@ final class RecordingController {
 
     func delete(_ meeting: Meeting) {
         if let name = meeting.audioFolderName {
-            let folder = Self.supportRoot.appendingPathComponent(name)
-            try? FileManager.default.removeItem(at: folder)
+            try? FileManager.default.removeItem(at: Self.supportRoot.appendingPathComponent(name))
         }
         if selectedMeeting?.id == meeting.id { selectedMeeting = nil }
         context.delete(meeting)
@@ -169,7 +171,9 @@ final class RecordingController {
 
     // MARK: - Helpers
 
-    private var isErrorPhase: Bool { if case .error = phase { return true } else { return false } }
+    private var isErrorPhase: Bool {
+        if case .error = phase { return true } else { return false }
+    }
 
     private func startTimer() {
         timerTask = Task { [weak self] in
@@ -181,10 +185,7 @@ final class RecordingController {
         }
     }
 
-    private func stopTimer() {
-        timerTask?.cancel()
-        timerTask = nil
-    }
+    private func stopTimer() { timerTask?.cancel(); timerTask = nil }
 
     private static let supportRoot: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
