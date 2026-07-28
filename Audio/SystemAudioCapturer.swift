@@ -72,6 +72,8 @@ final class ScreenCaptureAudioCapturer: NSObject, SystemAudioCapturer,
             }
         case .screen:
             videoFrameHandler?(sampleBuffer)
+        case .microphone:
+            break  // we capture mic separately via AVAudioEngine
         @unknown default:
             break
         }
